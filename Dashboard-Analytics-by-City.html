@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>BI Dashboard — Прототип</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+      background: #fafafa;
+    }
+    .metrics {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 15px 25px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    select {
+      padding: 6px 10px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h2> BI-Дашборд: Аналитика по городам</h2>
+  <label>Выберите город:</label>
+  <select id="citySelect">
+    <option value="Москва">Москва</option>
+    <option value="СПб">Санкт-Петербург</option>
+    <option value="Казань">Казань</option>
+  </select>
+
+  <div class="metrics">
+    <div class="card" id="revenueCard">Выручка: —</div>
+    <div class="card" id="momCard">MoM: —</div>
+    <div class="card" id="yoyCard">YoY: —</div>
+  </div>
+
+  <canvas id="revenueChart"></canvas>
+  <canvas id="cumulativeChart" style="margin-top:30px;"></canvas>
+
+  <script>
+
+const dataset = {
+  "Москва":    [10000, 12000, 15000, 18000],
+  "СПб":       [8000, 9500, 12000, 13000],
+  "Казань":    [5000, 6000, 6500, 7000]
+};
+const months = ["Июль", "Август", "Сентябрь", "Октябрь"];
+
+
+const calcMoM = (current, previous) => ((current - previous) / previous) * 100;
+const calcYoY = (cur, prevYear) => ((cur - prevYear) / prevYear) * 100;
+const calcCumulative = arr => {
+  let result = [];
+  arr.reduce((sum, v, i) => (result[i] = sum + v, sum + v), 0);
+  return result;
+};
+
+
+const fmtCurrency = v => new Intl.NumberFormat("ru-RU", {
+  style: "currency",
+  currency: "RUB",
+  maximumFractionDigits: 0
+}).format(v);
+
+const fmtPercent = v => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+
+
+const ctxRevenue = document.getElementById("revenueChart");
+const ctxCumulative = document.getElementById("cumulativeChart");
+
+let chart1, chart2;
+
+function updateDashboard(city) {
+  const data = dataset[city];
+  const cumulative = calcCumulative(data);
+  const mom = calcMoM(data[data.length - 1], data[data.length - 2]);
+  const yoy = calcYoY(data[data.length - 1], data[0]);
+
+  document.getElementById("revenueCard").textContent = `Выручка: ${fmtCurrency(data.at(-1))}`;
+  document.getElementById("momCard").textContent = `MoM: ${fmtPercent(mom)}`;
+  document.getElementById("yoyCard").textContent = `YoY: ${fmtPercent(yoy)}`;
+
+  if (chart1) chart1.destroy();
+  if (chart2) chart2.destroy();
+
+  chart1 = new Chart(ctxRevenue, {
+    type: "line",
+    data: {
+      labels: months,
+      datasets: [{
+        label: "Выручка",
+        data: data,
+        borderColor: "#2196F3",
+        backgroundColor: "rgba(33,150,243,0.15)",
+        borderWidth: 2,
+        tension: 0.3,
+        fill: true
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          ticks: {
+            callback: v => fmtCurrency(v)
+          }
+        }
+      }
+    }
+  });
+
+  chart2 = new Chart(ctxCumulative, {
+    type: "line",
+    data: {
+      labels: months,
+      datasets: [{
+        label: "Накопительная выручка",
+        data: cumulative,
+        borderColor: "#FF9800",
+        borderWidth: 2,
+        fill: false,
+        tension: 0.3
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          ticks: {
+            callback: v => fmtCurrency(v)
+          }
+        }
+      }
+    }
+  });
+}
+
+updateDashboard("Москва");
+
+document.getElementById("citySelect").addEventListener("change", e => {
+  updateDashboard(e.target.value);
+});
+</script>
+</body>
+</html>
